@@ -19,14 +19,17 @@ jobs:
         with:
           apptainer-version: 1.3.6
 
-      - name: Build SIF
-        run: apptainer build simnibs-4.5.0.sif simnibs.def
+      - name: Build Docker image
+        run: docker build -t simnibs:4.5.0 .
+
+      - name: Convert to SIF
+        run: singularity pull simnibs-4.5.0.sif docker-daemon:simnibs:4.5.0
 
       - name: Test container
         run: |
-          apptainer exec simnibs-4.5.0.sif python -c "import simnibs; print(simnibs.__version__)"
-          apptainer exec simnibs-4.5.0.sif which charm
-          apptainer exec simnibs-4.5.0.sif which simnibs
+          singularity exec simnibs-4.5.0.sif python -c "import simnibs; print(simnibs.__version__)"
+          singularity exec simnibs-4.5.0.sif which charm
+          singularity exec simnibs-4.5.0.sif which simnibs
 
       - name: Upload SIF as artifact
         uses: actions/upload-artifact@v4
@@ -47,5 +50,5 @@ jobs:
 
             Download the .sif file and transfer to Setonix:
             ```
-            scp simnibs-4.5.0.sif <user>@setonix.pawsey.org.au:/software/<project>/<user>/containers/
+            scp simnibs-4.5.0.sif <user>@setonix.pawsey.org.au:/software/projects/<project>/<user>/singularity/
             ```

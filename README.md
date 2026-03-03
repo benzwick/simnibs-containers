@@ -4,7 +4,7 @@ Singularity/Apptainer container packaging [SimNIBS](https://simnibs.github.io/si
 
 ## How it works
 
-A GitHub Actions workflow builds the container image (`.sif` file) from `simnibs.def` using Apptainer. On pushes to `main`, the SIF is published as a GitHub Release artifact.
+A GitHub Actions workflow builds a Docker image from the `Dockerfile`, converts it to Singularity SIF format, and publishes the SIF as a GitHub Release artifact on pushes to `main`. This follows [Pawsey's recommendation](https://pawsey.atlassian.net/wiki/spaces/US/pages/51925894/Singularity) to build via Docker for compatibility, layer caching, and portability.
 
 The container:
 - Uses `continuumio/miniconda3` as the base image
@@ -33,7 +33,7 @@ scp simnibs-4.5.0.sif <user>@setonix.pawsey.org.au:/scratch/<project>/singularit
 
 ## Usage on Setonix
 
-Since SimNIBS is a Python application and does not need host MPI, use the `singularity/4.1.0-nompi` module. Always pass the `-e` flag (clean environment) to avoid host Python environment pollution, as [recommended by Pawsey for Python containers](https://pawsey.atlassian.net/wiki/spaces/US/pages/51925894/Singularity).
+SimNIBS does not need host MPI -- its bundled PETSc/petsc4py includes a statically-linked MPICH for single-node parallelism. Use the `singularity/4.1.0-nompi` module. Always pass the `-e` flag (clean environment) to avoid host Python environment pollution, as [recommended by Pawsey for Python containers](https://pawsey.atlassian.net/wiki/spaces/US/pages/51925894/Singularity).
 
 ### Interactive
 
@@ -130,10 +130,14 @@ singularity cache clean -f
 
 ## Building locally
 
-Requires [Apptainer](https://apptainer.org/) (or Singularity >= 3.0):
+You cannot build containers on Setonix (no root access). Build on a local machine or VM, then transfer the SIF file.
 
 ```bash
-apptainer build simnibs-4.5.0.sif simnibs.def
+# Build Docker image
+docker build -t simnibs:4.5.0 .
+
+# Convert to Singularity SIF
+singularity pull simnibs-4.5.0.sif docker-daemon:simnibs:4.5.0
 ```
 
-Build time is approximately 20-40 minutes depending on network speed. Note: you cannot build containers on Setonix (no root access). Build locally or use GitHub Actions.
+Build time is approximately 20-40 minutes depending on network speed. Docker layer caching makes subsequent rebuilds much faster.
