@@ -31,15 +31,21 @@ RUN wget -q "${RELEASE_URL}/environment_linux.yml" \
 RUN conda env create -f environment_linux.yml -n simnibs_env \
     && conda clean --all --yes
 
+# Set PATH early so subsequent RUN steps can find console scripts
+ENV PATH="/opt/conda/envs/simnibs_env/bin:$PATH"
+ENV CONDA_PREFIX="/opt/conda/envs/simnibs_env"
+ENV CONDA_DEFAULT_ENV="simnibs_env"
+
 # Download and install SimNIBS wheel
 RUN wget -q "${RELEASE_URL}/simnibs-${SIMNIBS_VERSION}-cp311-cp311-linux_x86_64.whl" \
-    && /opt/conda/envs/simnibs_env/bin/pip install --no-cache-dir \
+    && pip install --no-cache-dir \
        simnibs-${SIMNIBS_VERSION}-cp311-cp311-linux_x86_64.whl \
     && rm -f simnibs-${SIMNIBS_VERSION}-cp311-cp311-linux_x86_64.whl
 
-# Link external programs (gmsh, meshfix, etc.)
-RUN /opt/conda/envs/simnibs_env/bin/python -c \
-    "from simnibs.cli.link_external_progs import main; main()"
+# Link external programs (gmsh, meshfix, etc.) into console scripts dir.
+# link_external_progs uses shutil.which('simnibs') to find the scripts dir,
+# so PATH must include the conda env bin (set above).
+RUN python -c "import simnibs.cli.link_external_progs"
 
 # Cleanup
 RUN rm -f /opt/simnibs/environment_linux.yml \
@@ -48,7 +54,4 @@ RUN rm -f /opt/simnibs/environment_linux.yml \
     && find /opt/conda -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # Environment for headless HPC use
-ENV PATH="/opt/conda/envs/simnibs_env/bin:$PATH"
-ENV CONDA_PREFIX="/opt/conda/envs/simnibs_env"
-ENV CONDA_DEFAULT_ENV="simnibs_env"
 ENV MPLBACKEND="Agg"
