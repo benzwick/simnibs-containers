@@ -43,9 +43,10 @@ RUN wget -q "${RELEASE_URL}/simnibs-${SIMNIBS_VERSION}-cp311-cp311-linux_x86_64.
     && rm -f simnibs-${SIMNIBS_VERSION}-cp311-cp311-linux_x86_64.whl
 
 # Link external programs (gmsh, meshfix, etc.) into console scripts dir.
-# link_external_progs uses shutil.which('simnibs') to find the scripts dir,
-# so PATH must include the conda env bin (set above).
-RUN python -c "import simnibs.cli.link_external_progs"
+# link_external_progs uses relative paths from cwd (e.g. simnibs/external/bin/linux/gmsh),
+# so we must cd to the site-packages dir where SimNIBS is installed.
+RUN cd $(python -c "import simnibs; print(simnibs.__path__[0])")/.. \
+    && python -c "import simnibs.cli.link_external_progs"
 
 # Cleanup
 RUN rm -f /opt/simnibs/environment_linux.yml \
