@@ -65,6 +65,49 @@ Edit `--account=<your-pawsey-project>` and file paths, then submit:
 sbatch slurm/charm_job.sh
 ```
 
+### Running Python scripts
+
+Custom SimNIBS Python scripts run inside the container via `simnibs_python`. The script lives on Setonix's filesystem (e.g. `$MYSCRATCH/scripts/`), which is automatically bind-mounted into the container by the `singularity/4.1.0-nompi` module.
+
+**1. Write your script** on Setonix (or upload it):
+
+```python
+# $MYSCRATCH/scripts/tms_simulation.py
+import simnibs
+
+s = simnibs.sim_struct.SESSION()
+s.subpath = "m2m_sub-01"
+s.pathfem = "tms_results"
+
+tms = s.add_tmslist()
+tms.fnamecoil = "Magstim_70mm_Fig8.ccd"
+
+pos = tms.add_position()
+pos.centre = simnibs.mni2subject_coords([-37, -21, 58], "m2m_sub-01")
+pos.pos_ydir = [0, 1, 0]
+pos.distance = 4
+
+simnibs.run_simnibs(s)
+```
+
+**2. Run interactively:**
+
+```bash
+module load singularity/4.1.0-nompi
+CONTAINER="${MYSOFTWARE}/singularity/simnibs-4.5.0.sif"
+
+cd ${MYSCRATCH}/data/sub-01
+singularity exec -e "${CONTAINER}" simnibs_python ${MYSCRATCH}/scripts/tms_simulation.py
+```
+
+**3. Or submit as a batch job** using `slurm/tms_simulation.sh`:
+
+```bash
+sbatch slurm/tms_simulation.sh
+```
+
+An example Python script is provided at `examples/tms_simulation.py`.
+
 ### Bind mounts
 
 The `singularity/4.1.0-nompi` module automatically bind-mounts `/scratch` and `/software`. To mount additional directories:
