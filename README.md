@@ -1,10 +1,15 @@
-# SimNIBS Singularity Container for Pawsey Setonix
+# SimNIBS Containers
 
-Singularity/Apptainer container packaging [SimNIBS](https://simnibs.github.io/simnibs/) v4.5.0 for headless HPC use on [Pawsey Setonix](https://pawsey.org.au/systems/setonix/).
+Containerised [SimNIBS](https://simnibs.github.io/simnibs/) v4.5.0 for headless operation. Available as:
+
+- **Docker** -- pull from GitHub Container Registry (`ghcr.io/benzwick/simnibs-containers`)
+- **Singularity/Apptainer** -- download the `.sif` file from [Releases](../../releases)
+
+The same `Dockerfile` produces both formats. Designed for HPC use on [Pawsey Setonix](https://pawsey.org.au/systems/setonix/), but works anywhere Docker or Singularity runs.
 
 ## How it works
 
-A GitHub Actions workflow builds a Docker image from the `Dockerfile`, converts it to Singularity SIF format, and publishes the SIF as a GitHub Release artifact on pushes to `main`. This follows [Pawsey's recommendation](https://pawsey.atlassian.net/wiki/spaces/US/pages/51925894/Singularity) to build via Docker for compatibility, layer caching, and portability.
+A GitHub Actions workflow builds a Docker image from the `Dockerfile`, pushes it to GitHub Container Registry, converts it to Singularity SIF format, and publishes the SIF as a GitHub Release artifact. This follows [Pawsey's recommendation](https://pawsey.atlassian.net/wiki/spaces/US/pages/51925894/Singularity) to build via Docker for compatibility, layer caching, and portability.
 
 The container:
 - Uses `continuumio/miniconda3` as the base image
@@ -15,7 +20,37 @@ The container:
 
 ## Download
 
+### Docker
+
+```bash
+docker pull ghcr.io/benzwick/simnibs-containers:4.5.0
+```
+
+### Singularity/Apptainer
+
 Grab the latest `.sif` from the [Releases](../../releases) page.
+
+You can also convert the Docker image directly:
+
+```bash
+singularity pull simnibs-4.5.0.sif docker://ghcr.io/benzwick/simnibs-containers:4.5.0
+```
+
+## Usage with Docker
+
+```bash
+# Head meshing
+docker run --rm -v $(pwd):/data -w /data ghcr.io/benzwick/simnibs-containers:4.5.0 \
+    charm T1w.nii.gz T2w.nii.gz -o output_dir
+
+# Run a simulation
+docker run --rm -v $(pwd):/data -w /data ghcr.io/benzwick/simnibs-containers:4.5.0 \
+    simnibs simulation.mat
+
+# Run a Python script
+docker run --rm -v $(pwd):/data -w /data ghcr.io/benzwick/simnibs-containers:4.5.0 \
+    simnibs_python my_script.py
+```
 
 ## Transfer to Setonix
 
@@ -173,13 +208,13 @@ singularity cache clean -f
 
 ## Building locally
 
-You cannot build containers on Setonix (no root access). Build on a local machine or VM, then transfer the SIF file.
+You cannot build containers on Setonix (no root access). Build on a local machine or VM.
 
 ```bash
 # Build Docker image
 docker build -t simnibs:4.5.0 .
 
-# Convert to Singularity SIF
+# (Optional) Convert to Singularity SIF
 singularity pull simnibs-4.5.0.sif docker-daemon:simnibs:4.5.0
 ```
 

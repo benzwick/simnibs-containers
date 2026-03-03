@@ -7,25 +7,54 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image
+        run: docker build -t simnibs:4.5.0 .
+
+      - name: Test Docker image
+        run: |
+          docker run --rm simnibs:4.5.0 python -c "import simnibs; print(simnibs.__version__)"
+          docker run --rm simnibs:4.5.0 which charm
+          docker run --rm simnibs:4.5.0 which simnibs
+
+      - name: Push Docker image to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker tag simnibs:4.5.0 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:4.5.0
+          docker tag simnibs:4.5.0 ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:4.5.0
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Setup Apptainer
         uses: eWaterCycle/setup-apptainer@v2
         with:
           apptainer-version: 1.3.6
 
-      - name: Build Docker image
-        run: docker build -t simnibs:4.5.0 .
-
       - name: Convert to SIF
         run: singularity pull simnibs-4.5.0.sif docker-daemon:simnibs:4.5.0
 
-      - name: Test container
+      - name: Test SIF
         run: |
           singularity exec simnibs-4.5.0.sif python -c "import simnibs; print(simnibs.__version__)"
           singularity exec simnibs-4.5.0.sif which charm
@@ -46,9 +75,15 @@ jobs:
           name: SimNIBS 4.5.0 Container
           files: simnibs-4.5.0.sif
           body: |
-            SimNIBS v4.5.0 Singularity container for Pawsey Setonix.
+            SimNIBS v4.5.0 containers for headless HPC use.
 
-            Download the .sif file and transfer to Setonix:
+            **Docker:**
             ```
-            scp simnibs-4.5.0.sif <user>@setonix.pawsey.org.au:/software/projects/<project>/<user>/singularity/
+            docker pull ghcr.io/benzwick/simnibs-containers:4.5.0
+            ```
+
+            **Singularity/Apptainer:**
+            Download `simnibs-4.5.0.sif` below, or pull from GHCR:
+            ```
+            singularity pull simnibs-4.5.0.sif docker://ghcr.io/benzwick/simnibs-containers:4.5.0
             ```
