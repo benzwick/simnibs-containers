@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=simnibs-tms
 #SBATCH --account=<your-pawsey-project>
 #SBATCH --partition=work
@@ -10,9 +10,9 @@
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 
-module load singularity/4.1.0-slurm
+module load singularity/4.1.0-nompi
 
-CONTAINER="/software/${PAWSEY_PROJECT}/${USER}/containers/simnibs-4.5.0.sif"
+CONTAINER="${MYSOFTWARE}/singularity/simnibs-4.5.0.sif"
 
-singularity exec "${CONTAINER}" \
+srun -N 1 -n 1 -c ${SLURM_CPUS_PER_TASK} singularity exec -e "${CONTAINER}" \
     simnibs_python "${MYSCRATCH}/scripts/tms_simulation.py"

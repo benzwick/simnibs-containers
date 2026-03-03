@@ -10,10 +10,10 @@ From: continuumio/miniconda3:24.7.1-0
     Built for headless HPC use on Pawsey Setonix.
 
     Usage:
-        module load singularity/4.1.0-slurm
-        singularity exec simnibs-4.5.0.sif charm T1.nii.gz T2.nii.gz
-        singularity exec simnibs-4.5.0.sif simnibs simulation.mat
-        singularity exec simnibs-4.5.0.sif simnibs_python my_script.py
+        module load singularity/4.1.0-nompi
+        singularity exec -e simnibs-4.5.0.sif charm T1.nii.gz T2.nii.gz
+        singularity exec -e simnibs-4.5.0.sif simnibs simulation.mat
+        singularity exec -e simnibs-4.5.0.sif simnibs_python my_script.py
 
 %post
     export DEBIAN_FRONTEND=noninteractive

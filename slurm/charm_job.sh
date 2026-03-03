@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=simnibs-charm
 #SBATCH --account=<your-pawsey-project>
 #SBATCH --partition=work
@@ -10,16 +10,16 @@
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 
-module load singularity/4.1.0-slurm
+module load singularity/4.1.0-nompi
 
-CONTAINER="/software/${PAWSEY_PROJECT}/${USER}/containers/simnibs-4.5.0.sif"
+CONTAINER="${MYSOFTWARE}/singularity/simnibs-4.5.0.sif"
 T1="${MYSCRATCH}/data/sub-01/T1w.nii.gz"
 T2="${MYSCRATCH}/data/sub-01/T2w.nii.gz"
 OUTDIR="${MYSCRATCH}/data/sub-01/simnibs"
 
 mkdir -p "${OUTDIR}"
 
-singularity exec "${CONTAINER}" \
+srun -N 1 -n 1 -c ${SLURM_CPUS_PER_TASK} singularity exec -e "${CONTAINER}" \
     charm "${T1}" "${T2}" \
     --forcerun \
     -o "${OUTDIR}"

@@ -19,27 +19,37 @@ Grab the latest `.sif` from the [Releases](../../releases) page.
 
 ## Transfer to Setonix
 
+Store the container in your `$MYSOFTWARE/singularity/` directory, following [Pawsey's recommendations](https://pawsey.atlassian.net/wiki/spaces/US/pages/51925894/Singularity):
+
 ```bash
-scp simnibs-4.5.0.sif <user>@setonix.pawsey.org.au:/software/<project>/<user>/containers/
+scp simnibs-4.5.0.sif <user>@setonix.pawsey.org.au:/software/projects/<project>/<user>/singularity/
+```
+
+For containers shared across a project, use a group repository:
+
+```bash
+scp simnibs-4.5.0.sif <user>@setonix.pawsey.org.au:/scratch/<project>/singularity/
 ```
 
 ## Usage on Setonix
 
+Since SimNIBS is a Python application and does not need host MPI, use the `singularity/4.1.0-nompi` module. Always pass the `-e` flag (clean environment) to avoid host Python environment pollution, as [recommended by Pawsey for Python containers](https://pawsey.atlassian.net/wiki/spaces/US/pages/51925894/Singularity).
+
 ### Interactive
 
 ```bash
-module load singularity/4.1.0-slurm
+module load singularity/4.1.0-nompi
 
-CONTAINER="/software/${PAWSEY_PROJECT}/${USER}/containers/simnibs-4.5.0.sif"
+CONTAINER="${MYSOFTWARE}/singularity/simnibs-4.5.0.sif"
 
 # Head meshing
-singularity exec "${CONTAINER}" charm T1w.nii.gz T2w.nii.gz -o output_dir
+singularity exec -e "${CONTAINER}" charm T1w.nii.gz T2w.nii.gz -o output_dir
 
 # Run a simulation
-singularity exec "${CONTAINER}" simnibs simulation.mat
+singularity exec -e "${CONTAINER}" simnibs simulation.mat
 
 # Run a custom Python script
-singularity exec "${CONTAINER}" simnibs_python my_script.py
+singularity exec -e "${CONTAINER}" simnibs_python my_script.py
 ```
 
 ### Batch jobs
@@ -53,6 +63,20 @@ Edit `--account=<your-pawsey-project>` and file paths, then submit:
 
 ```bash
 sbatch slurm/charm_job.sh
+```
+
+### Bind mounts
+
+The `singularity/4.1.0-nompi` module automatically bind-mounts `/scratch` and `/software`. To mount additional directories:
+
+```bash
+singularity exec -e -B /path/on/host:/path/in/container "${CONTAINER}" simnibs_python script.py
+```
+
+If a program needs `$HOME`, bind-mount a writable directory as a fake home:
+
+```bash
+singularity exec -e -B ${MYSCRATCH}/fakehome:${HOME} "${CONTAINER}" simnibs_python script.py
 ```
 
 ## Available CLI tools
@@ -76,7 +100,7 @@ The container sets `MKL_NUM_THREADS` and `OMP_NUM_THREADS` from `SLURM_CPUS_PER_
 
 ```bash
 export MKL_NUM_THREADS=16
-singularity exec "${CONTAINER}" simnibs_python my_script.py
+singularity exec -e "${CONTAINER}" simnibs_python my_script.py
 ```
 
 ### Matplotlib "no display" errors
@@ -87,6 +111,23 @@ The container sets `MPLBACKEND=Agg` automatically. If you still get display erro
 
 If `which gmsh` fails inside the container, the `link_external_progs` step may not have run correctly during the build. Check the build logs.
 
+### Singularity cache quota errors
+
+The singularity module sets the cache to `$MYSCRATCH/.singularity/cache` to avoid `/home` quota issues. If you still get errors, clean the cache:
+
+```bash
+singularity cache clean -f
+```
+
+## Singularity module flavours
+
+| Module | Use case |
+|--------|----------|
+| `singularity/4.1.0-nompi` | Applications without MPI (use this for SimNIBS) |
+| `singularity/4.1.0-nohost` | Total isolation from host environment |
+| `singularity/4.1.0-mpi` | MPI applications (Cray MPICH injected) |
+| `singularity/4.1.0-mpi-gpu` | MPI + GPU applications |
+
 ## Building locally
 
 Requires [Apptainer](https://apptainer.org/) (or Singularity >= 3.0):
@@ -95,4 +136,4 @@ Requires [Apptainer](https://apptainer.org/) (or Singularity >= 3.0):
 apptainer build simnibs-4.5.0.sif simnibs.def
 ```
 
-Build time is approximately 20-40 minutes depending on network speed.
+Build time is approximately 20-40 minutes depending on network speed. Note: you cannot build containers on Setonix (no root access). Build locally or use GitHub Actions.
