@@ -1,0 +1,51 @@
+name: Build SimNIBS Container
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
+        with:
+          apptainer-version: 1.3.6
+
+      - name: Build SIF
+        run: apptainer build simnibs-4.5.0.sif simnibs.def
+
+      - name: Test container
+        run: |
+          apptainer exec simnibs-4.5.0.sif python -c "import simnibs; print(simnibs.__version__)"
+          apptainer exec simnibs-4.5.0.sif which charm
+          apptainer exec simnibs-4.5.0.sif which simnibs
+
+      - name: Upload SIF as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: simnibs-4.5.0.sif
+          path: simnibs-4.5.0.sif
+          retention-days: 90
+
+      - name: Create Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v4.5.0
+          name: SimNIBS 4.5.0 Container
+          files: simnibs-4.5.0.sif
+          body: |
+            SimNIBS v4.5.0 Singularity container for Pawsey Setonix.
+
+            Download the .sif file and transfer to Setonix:
+            ```
+            scp simnibs-4.5.0.sif <user>@setonix.pawsey.org.au:/software/<project>/<user>/containers/
+            ```

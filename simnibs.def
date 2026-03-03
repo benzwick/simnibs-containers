@@ -1,0 +1,77 @@
+Bootstrap: docker
+From: continuumio/miniconda3:24.7.1-0
+
+%labels
+    Version     4.5.0
+    Description SimNIBS v4.5.0 headless container for Pawsey Setonix
+
+%help
+    SimNIBS v4.5.0 - Simulation of Non-Invasive Brain Stimulation
+    Built for headless HPC use on Pawsey Setonix.
+
+    Usage:
+        module load singularity/4.1.0-slurm
+        singularity exec simnibs-4.5.0.sif charm T1.nii.gz T2.nii.gz
+        singularity exec simnibs-4.5.0.sif simnibs simulation.mat
+        singularity exec simnibs-4.5.0.sif simnibs_python my_script.py
+
+%post
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update && apt-get install -y --no-install-recommends \
+        libgl1-mesa-glx libglib2.0-0 libsm6 libxext6 libxrender1 libgomp1 \
+        wget ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+    SIMNIBS_VERSION=4.5.0
+    SIMNIBS_WHEEL="simnibs-${SIMNIBS_VERSION}-cp311-cp311-linux_x86_64.whl"
+    RELEASE_URL="https://github.com/simnibs/simnibs/releases/download/v${SIMNIBS_VERSION}"
+
+    mkdir -p /opt/simnibs && cd /opt/simnibs
+
+    # Download release assets
+    wget -q "${RELEASE_URL}/environment_linux.yml"
+    wget -q "${RELEASE_URL}/${SIMNIBS_WHEEL}"
+
+    # Strip GUI/dev dependencies from environment file
+    sed -i '/freeglut/d' environment_linux.yml
+    sed -i '/pytest/d' environment_linux.yml
+    sed -i '/mock/d' environment_linux.yml
+    sed -i '/jupyterlab/d' environment_linux.yml
+    sed -i '/setuptools-scm/d' environment_linux.yml
+    sed -i '/pyqt5/d' environment_linux.yml
+
+    # Create conda environment
+    conda env create -f environment_linux.yml -n simnibs_env
+    conda clean --all --yes
+
+    # Install SimNIBS wheel
+    /opt/conda/envs/simnibs_env/bin/pip install --no-cache-dir \
+        /opt/simnibs/${SIMNIBS_WHEEL}
+
+    # Link external programs (gmsh, meshfix, etc.)
+    /opt/conda/envs/simnibs_env/bin/python -c \
+        "from simnibs.cli.link_external_progs import main; main()"
+
+    # Cleanup
+    rm -f /opt/simnibs/${SIMNIBS_WHEEL} /opt/simnibs/environment_linux.yml
+    conda clean --all --yes
+    find /opt/conda -name "*.pyc" -delete
+    find /opt/conda -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+
+    # Write conda activation for both Singularity and Apptainer
+    ENV_FILE="${SINGULARITY_ENVIRONMENT:-${APPTAINER_ENVIRONMENT:-/.singularity.d/env/91-environment.sh}}"
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> "$ENV_FILE"
+    echo "conda activate simnibs_env" >> "$ENV_FILE"
+
+%environment
+    export PATH="/opt/conda/envs/simnibs_env/bin:$PATH"
+    export CONDA_PREFIX="/opt/conda/envs/simnibs_env"
+    export CONDA_DEFAULT_ENV="simnibs_env"
+    export MPLBACKEND="Agg"
+    export MKL_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
+    export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-1}
+
+%test
+    export PATH="/opt/conda/envs/simnibs_env/bin:$PATH"
+    python -c "import simnibs; print(f'SimNIBS {simnibs.__version__}')"
+    which charm && which simnibs && which simnibs_python
